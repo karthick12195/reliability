@@ -8,6 +8,7 @@ Available distributions are:
     Exponential_Distribution
     Gamma_Distribution
     Beta_Distribution
+    Loglogistic_Distribution
 
 Methods:
     name - the name of the distribution. eg. 'Weibull'
@@ -64,6 +65,680 @@ import autograd.numpy as anp
 
 dec = 4  # number of decimals to use when rounding descriptive statistics and parameter titles
 np.seterr(divide='ignore', invalid='ignore')  # ignore the divide by zero warnings
+
+class Loglogistic_Distribution:
+    '''
+    Loglogistic probability distribution
+
+    Creates a Distribution object.
+
+    inputs:
+    alpha - scale parameter
+    beta - shape parameter
+    gamma - threshold (offset) parameter. Default = 0
+
+    methods:
+    name - 'Loglogistic'
+    name2 = 'Loglogistic_2P' or 'Loglogistic_3P' depending on the value of the gamma parameter
+    param_title_long - Useful in plot titles, legends and in printing strings. eg. 'Loglogistic Distribution (α=5,β=2)'
+    param_title - Useful in plot titles, legends and in printing strings. eg. 'α=5,β=2'
+    parameters - [alpha,beta,gamma]
+    alpha
+    beta
+    gamma
+    mean
+    variance
+    standard_deviation
+    skewness
+    kurtosis
+    excess_kurtosis
+    median
+    mode
+    b5
+    b95
+    plot() - plots all functions (PDF,CDF,SF,HF,CHF)
+    PDF() - plots the probability density function
+    CDF() - plots the cumulative distribution function
+    SF() - plots the survival function (also known as reliability function)
+    HF() - plots the hazard function
+    CHF() - plots the cumulative hazard function
+    quantile() - Calculates the quantile (time until a fraction has failed) for a given fraction failing.
+                 Also known as b life where b5 is the time at which 5% have failed.
+    inverse_SF() - the inverse of the Survival Function. This is useful when producing QQ plots.
+    mean_residual_life() - Average residual lifetime of an item given that the item has survived up to a given time.
+                           Effectively the mean of the remaining amount (right side) of a distribution at a given time.
+    stats() - prints all the descriptive statistics. Same as the statistics shown using .plot() but printed to console.
+    random_samples() - draws random samples from the distribution to which it is applied. Same as rvs in scipy.stats.
+    '''
+
+    def __init__(self, alpha=None, beta=None, gamma=0, **kwargs):
+        self.name = 'Loglogistic'
+        self.alpha = float(alpha)
+        self.beta = float(beta)
+        if self.alpha is None or self.beta is None:
+            raise ValueError('Parameters alpha and beta must be specified. Eg. Loglogistic_Distribution(alpha=5,beta=2)')
+        self.gamma = float(gamma)
+        self.parameters = np.array([self.alpha, self.beta, self.gamma])
+        mean, var, skew, kurt = ss.fisk.stats(self.beta, scale=self.alpha, loc=self.gamma, moments='mvsk')
+        self.mean = float(mean)
+        self.variance = float(var)
+        self.standard_deviation = var ** 0.5
+        self.skewness = float(skew)
+        self.kurtosis = kurt + 3
+        self.excess_kurtosis = float(kurt)
+        self.median = ss.fisk.median(self.beta, scale=self.alpha, loc=self.gamma)
+        if self.beta >= 1:
+            self.mode = self.alpha * ((self.beta - 1) / (self.beta + 1)) ** (1 / self.beta) + self.gamma
+        else:
+            self.mode = r'No mode exists when $\beta$ < 1'
+        if self.gamma != 0:
+            self.param_title = str('α=' + str(round_to_decimals(self.alpha, dec)) + ',β=' + str(round_to_decimals(self.beta, dec)) + ',γ=' + str(round_to_decimals(self.gamma, dec)))
+            self.param_title_long = str('Loglogistic Distribution (α=' + str(round_to_decimals(self.alpha, dec)) + ',β=' + str(round_to_decimals(self.beta, dec)) + ',γ=' + str(round_to_decimals(self.gamma, dec)) + ')')
+            self.name2 = 'Loglogistic_3P'
+        else:
+            self.param_title = str('α=' + str(round_to_decimals(self.alpha, dec)) + ',β=' + str(round_to_decimals(self.beta, dec)))
+            self.param_title_long = str('Loglogistic Distribution (α=' + str(round_to_decimals(self.alpha, dec)) + ',β=' + str(round_to_decimals(self.beta, dec)) + ')')
+            self.name2 = 'Loglogistic_2P'
+        self.b5 = ss.fisk.ppf(0.05, self.beta, scale=self.alpha, loc=self.gamma)
+        self.b95 = ss.fisk.ppf(0.95, self.beta, scale=self.alpha, loc=self.gamma)
+
+        # extracts values for confidence interval plotting
+        if 'alpha_SE' in kwargs:
+            self.alpha_SE = kwargs.pop('alpha_SE')
+        else:
+            self.alpha_SE = None
+        if 'beta_SE' in kwargs:
+            self.beta_SE = kwargs.pop('beta_SE')
+        else:
+            self.beta_SE = None
+        if 'Cov_alpha_beta' in kwargs:
+            self.Cov_alpha_beta = kwargs.pop('Cov_alpha_beta')
+        else:
+            self.Cov_alpha_beta = None
+        if 'CI' in kwargs:
+            CI = kwargs.pop('CI')
+            self.Z = -ss.norm.ppf((1 - CI) / 2)
+        else:
+            self.Z = None
+        if 'CI_type' in kwargs:
+            self.CI_type = kwargs.pop('CI_type')
+        else:
+            self.CI_type = 'time'
+        for item in kwargs.keys():
+            print('WARNING:', item, 'not recognised as an appropriate entry in kwargs. Appropriate entries are alpha_SE, beta_SE, Cov_alpha_beta, CI, and CI_type')
+        self._pdf0 = ss.fisk.pdf(0, self.beta, scale=self.alpha, loc=0) #the pdf at 0. Used by Utils.restore_axes_limits and Utils.generate_X_array
+        self._hf0 = ss.fisk.pdf(0, self.beta, scale=self.alpha, loc=0)/ss.weibull_min.sf(0, self.beta, scale=self.alpha, loc=0) #the hf at 0. Used by Utils.restore_axes_limits and Utils.generate_X_array
+
+    def plot(self, xvals=None, xmin=None, xmax=None):
+        '''
+        Plots all functions (PDF, CDF, SF, HF, CHF) and descriptive statistics in a single figure
+
+        Inputs:
+        xvals - x-values for plotting
+        xmin - minimum x-value for plotting
+        xmax - maximum x-value for plotting
+        *If xvals is specified, it will be used. If xvals is not specified but xmin and xmax are specified then an array with 1000 elements
+        will be created using these ranges. If nothing is specified then the range will be based on the distribution's parameters.
+        *no plotting keywords are accepted
+
+        Outputs:
+        The plot will be shown. No need to use plt.show()
+        '''
+
+        # obtain the X array for PDF, CDF, SF
+        X = generate_X_array(dist=self, func='CDF', xvals=xvals, xmin=xmin, xmax=xmax)
+        # obtain the X array for CHF and HF
+        Xhf = generate_X_array(dist=self, func='HF', xvals=xvals, xmin=xmin, xmax=xmax)
+
+        pdf = ss.fisk.pdf(X, self.beta, scale=self.alpha, loc=self.gamma)
+        cdf = ss.fisk.cdf(X, self.beta, scale=self.alpha, loc=self.gamma)
+        sf = ss.fisk.sf(X, self.beta, scale=self.alpha, loc=self.gamma)
+        hf = (self.beta / self.alpha) * ((Xhf - self.gamma) / self.alpha) ** (self.beta - 1)
+        hf = zeroise_below_gamma(X=X, Y=hf, gamma=self.gamma)
+        chf = ((Xhf - self.gamma) / self.alpha) ** self.beta
+        chf = zeroise_below_gamma(X=X, Y=chf, gamma=self.gamma)
+
+        plt.figure(figsize=(9, 7))
+        text_title = str('Loglogistic Distribution' + '\n' + self.param_title)
+        plt.suptitle(text_title, fontsize=15)
+
+        plt.subplot(231)
+        plt.plot(X, pdf)
+        restore_axes_limits([(0, 1), (0, 1), False], dist=self, func='PDF', X=X, Y=pdf, xvals=xvals, xmin=xmin, xmax=xmax)
+        plt.title('Probability Density\nFunction')
+
+        plt.subplot(232)
+        plt.plot(X, cdf)
+        restore_axes_limits([(0, 1), (0, 1), False], dist=self, func='CDF', X=X, Y=cdf, xvals=xvals, xmin=xmin, xmax=xmax)
+        plt.title('Cumulative Distribution\nFunction')
+
+        plt.subplot(233)
+        plt.plot(X, sf)
+        restore_axes_limits([(0, 1), (0, 1), False], dist=self, func='SF', X=X, Y=sf, xvals=xvals, xmin=xmin, xmax=xmax)
+        plt.title('Survival Function')
+
+        plt.subplot(234)
+        plt.plot(Xhf, hf)
+        restore_axes_limits([(0, 1), (0, 1), False], dist=self, func='HF', X=Xhf, Y=hf, xvals=xvals, xmin=xmin, xmax=xmax)
+        plt.title('Hazard Function')
+
+        plt.subplot(235)
+        plt.plot(Xhf, chf)
+        restore_axes_limits([(0, 1), (0, 1), False], dist=self, func='CHF', X=Xhf, Y=chf, xvals=xvals, xmin=xmin, xmax=xmax)
+        plt.title('Cumulative Hazard\nFunction')
+
+        # descriptive statistics section
+        plt.subplot(236)
+        plt.axis('off')
+        plt.ylim([0, 10])
+        plt.xlim([0, 10])
+        text_mean = str('Mean = ' + str(round_to_decimals(float(self.mean), dec)))
+        text_median = str('Median = ' + str(round_to_decimals(self.median, dec)))
+        try:
+            text_mode = str('Mode = ' + str(round_to_decimals(self.mode, dec)))
+        except:
+            text_mode = str('Mode = ' + str(self.mode))  # required when mode is str
+        text_b5 = str('$5^{th}$ quantile = ' + str(round_to_decimals(self.b5, dec)))
+        text_b95 = str('$95^{th}$ quantile = ' + str(round_to_decimals(self.b95, dec)))
+        text_std = str('Standard deviation = ' + str(round_to_decimals(self.variance ** 0.5, dec)))
+        text_var = str('Variance = ' + str(round_to_decimals(float(self.variance), dec)))
+        text_skew = str('Skewness = ' + str(round_to_decimals(float(self.skewness), dec)))
+        text_ex_kurt = str('Excess kurtosis = ' + str(round_to_decimals(float(self.excess_kurtosis), dec)))
+        plt.text(0, 9, text_mean)
+        plt.text(0, 8, text_median)
+        plt.text(0, 7, text_mode)
+        plt.text(0, 6, text_b5)
+        plt.text(0, 5, text_b95)
+        plt.text(0, 4, text_std)
+        plt.text(0, 3, text_var)
+        plt.text(0, 2, text_skew)
+        plt.text(0, 1, text_ex_kurt)
+        plt.tight_layout()
+        plt.subplots_adjust(hspace=0.3, top=0.84)
+        plt.show()
+
+    def PDF(self, xvals=None, xmin=None, xmax=None, show_plot=True, **kwargs):
+        '''
+        Plots the PDF (probability density function)
+
+        Inputs:
+        show_plot - True/False. Default is True
+        xvals - x-values for plotting
+        xmin - minimum x-value for plotting
+        xmax - maximum x-value for plotting
+        *If xvals is specified, it will be used. If xvals is not specified but xmin and xmax are specified then an array with 1000 elements
+        will be created using these ranges. If nothing is specified then the range will be based on the distribution's parameters.
+        *plotting keywords are also accepted (eg. color, linestyle)
+
+        Outputs:
+        yvals - this is the y-values of the plot
+        The plot will be shown if show_plot is True (which it is by default).
+        '''
+
+        # obtain the X array
+        X = generate_X_array(dist=self, func='PDF', xvals=xvals, xmin=xmin, xmax=xmax)
+
+        pdf = ss.fisk.pdf(X, self.beta, scale=self.alpha, loc=self.gamma)
+
+        if show_plot == False:
+            return pdf
+        else:
+            limits = get_axes_limits()  # get the previous axes limits
+
+            plt.plot(X, pdf, **kwargs)
+            plt.xlabel('x values')
+            plt.ylabel('Probability density')
+            text_title = str('Loglogistic Distribution\n' + ' Probability Density Function ' + '\n' + self.param_title)
+            plt.title(text_title)
+            plt.subplots_adjust(top=0.87)
+
+            restore_axes_limits(limits, dist=self, func='PDF', X=X, Y=pdf, xvals=xvals, xmin=xmin, xmax=xmax)
+
+            return pdf
+
+    def CDF(self, xvals=None, xmin=None, xmax=None, show_plot=True, **kwargs):
+        '''
+        Plots the CDF (cumulative distribution function)
+
+        Inputs:
+        show_plot - True/False. Default is True
+        xvals - x-values for plotting
+        xmin - minimum x-value for plotting
+        xmax - maximum x-value for plotting
+        *If xvals is specified, it will be used. If xvals is not specified but xmin and xmax are specified then an array with 1000 elements
+        will be created using these ranges. If nothing is specified then the range will be based on the distribution's parameters.
+        *plotting keywords are also accepted (eg. color, linestyle)
+
+        Outputs:
+        yvals - this is the y-values of the plot
+        The plot will be shown if show_plot is True (which it is by default).
+        '''
+
+        # obtain the X array
+        X = generate_X_array(dist=self, func='CDF', xvals=xvals, xmin=xmin, xmax=xmax)
+
+        # this determines if the user has specified for the CI bounds to be shown or hidden.
+        kwargs_list = kwargs.keys()
+        if 'plot_CI' in kwargs_list:
+            plot_CI = kwargs.pop('plot_CI')
+        elif 'show_CI' in kwargs_list:
+            plot_CI = kwargs.pop('show_CI')
+        else:
+            plot_CI = True  # default
+        if plot_CI not in [True, False]:
+            print('WARNING: unexpected value in kwargs. To show/hide the CI you can specify either show_CI=True/False or plot_CI=True/False')
+            plot_CI = True
+
+        cdf = ss.fisk.cdf(X, self.beta, scale=self.alpha, loc=self.gamma)
+
+        if show_plot == False:
+            return cdf
+        else:
+
+            limits = get_axes_limits()  # get the previous axes limits
+
+            p = plt.plot(X, cdf, **kwargs)
+            plt.xlabel('x values')
+            plt.ylabel('Fraction failing')
+            text_title = str('Loglogistic Distribution\n' + ' Cumulative Distribution Function ' + '\n' + self.param_title)
+            plt.title(text_title)
+            plt.subplots_adjust(top=0.87)
+
+            restore_axes_limits(limits, dist=self, func='CDF', X=X, Y=cdf, xvals=xvals, xmin=xmin, xmax=xmax)
+
+            # Weibull_Distribution.__weibull_CI(self, func='CDF', plot_CI=plot_CI, text_title=text_title, color=p[0].get_color()) # commenting CI for now
+
+            return cdf
+
+    def SF(self, xvals=None, xmin=None, xmax=None, show_plot=True, **kwargs):
+        '''
+        Plots the SF (survival function)
+
+        Inputs:
+        show_plot - True/False. Default is True
+        xvals - x-values for plotting
+        xmin - minimum x-value for plotting
+        xmax - maximum x-value for plotting
+        *If xvals is specified, it will be used. If xvals is not specified but xmin and xmax are specified then an array with 1000 elements
+        will be created using these ranges. If nothing is specified then the range will be based on the distribution's parameters.
+        *plotting keywords are also accepted (eg. color, linestyle)
+
+        Outputs:
+        yvals - this is the y-values of the plot
+        The plot will be shown if show_plot is True (which it is by default).
+        '''
+
+        # obtain the X array
+        X = generate_X_array(dist=self, func='SF', xvals=xvals, xmin=xmin, xmax=xmax)
+
+        # this determines if the user has specified for the CI bounds to be shown or hidden. Applicable kwargs are show_CI or plot_CI
+        kwargs_list = kwargs.keys()
+        if 'plot_CI' in kwargs_list:
+            plot_CI = kwargs.pop('plot_CI')
+        elif 'show_CI' in kwargs_list:
+            plot_CI = kwargs.pop('show_CI')
+        else:
+            plot_CI = True  # default
+        if plot_CI not in [True, False]:
+            print('WARNING: unexpected value in kwargs. To show/hide the CI you can specify either show_CI=True/False or plot_CI=True/False')
+            plot_CI = True
+
+        sf = ss.fisk.sf(X, self.beta, scale=self.alpha, loc=self.gamma)
+
+        if show_plot == False:
+            return sf
+        else:
+            limits = get_axes_limits()  # get the previous axes limits
+
+            p = plt.plot(X, sf, **kwargs)
+            plt.xlabel('x values')
+            plt.ylabel('Fraction surviving')
+            text_title = str('Loglogistic Distribution\n' + ' Survival Function ' + '\n' + self.param_title)
+            plt.title(text_title)
+            plt.subplots_adjust(top=0.87)
+
+            restore_axes_limits(limits, dist=self, func='SF', X=X, Y=sf, xvals=xvals, xmin=xmin, xmax=xmax)
+
+            # Weibull_Distribution.__weibull_CI(self, func='SF', plot_CI=plot_CI, text_title=text_title, color=p[0].get_color()) # Commenting CI for now
+
+            return sf
+
+    def HF(self, xvals=None, xmin=None, xmax=None, show_plot=True, **kwargs):
+        '''
+        Plots the HF (hazard function)
+
+        Inputs:
+        show_plot - True/False. Default is True
+        xvals - x-values for plotting
+        xmin - minimum x-value for plotting
+        xmax - maximum x-value for plotting
+        *If xvals is specified, it will be used. If xvals is not specified but xmin and xmax are specified then an array with 1000 elements
+        will be created using these ranges. If nothing is specified then the range will be based on the distribution's parameters.
+        *plotting keywords are also accepted (eg. color, linestyle)
+
+        Outputs:
+        yvals - this is the y-values of the plot
+        The plot will be shown if show_plot is True (which it is by default).
+        '''
+
+        # obtain the X array
+        X = generate_X_array(dist=self, func='HF', xvals=xvals, xmin=xmin, xmax=xmax)
+
+        # this determines if the user has specified for the CI bounds to be shown or hidden. Applicable kwargs are show_CI or plot_CI
+        kwargs_list = kwargs.keys()
+        if 'plot_CI' in kwargs_list:
+            plot_CI = kwargs.pop('plot_CI')
+        elif 'show_CI' in kwargs_list:
+            plot_CI = kwargs.pop('show_CI')
+        else:
+            plot_CI = True  # default
+        if plot_CI not in [True, False]:
+            print('WARNING: unexpected value in kwargs. To show/hide the CI you can specify either show_CI=True/False or plot_CI=True/False')
+            plot_CI = True
+
+        hf = (self.beta / self.alpha) * ((X - self.gamma) / self.alpha) ** (self.beta - 1)
+        hf = zeroise_below_gamma(X=X, Y=hf, gamma=self.gamma)
+        self._hf = hf  # required by the CI plotting part
+
+        chf = ((X - self.gamma) / self.alpha) ** self.beta
+        chf = zeroise_below_gamma(X=X, Y=chf, gamma=self.gamma)
+        self._chf = chf  # required by the CI plotting part
+        self._X = X
+
+        if show_plot == False:
+            return hf
+        else:
+            limits = get_axes_limits()  # get the previous axes limits
+
+            p = plt.plot(X, hf, **kwargs)
+            plt.xlabel('x values')
+            plt.ylabel('Hazard')
+            text_title = str('Loglogistic Distribution\n' + ' Hazard Function ' + '\n' + self.param_title)
+            plt.title(text_title)
+            plt.subplots_adjust(top=0.87)
+
+            restore_axes_limits(limits, dist=self, func='HF', X=X, Y=hf, xvals=xvals, xmin=xmin, xmax=xmax)
+
+            # Weibull_Distribution.__weibull_CI(self, func='HF', plot_CI=plot_CI, text_title=text_title, color=p[0].get_color())
+
+            return hf
+
+    def CHF(self, xvals=None, xmin=None, xmax=None, show_plot=True, **kwargs):
+        '''
+        Plots the CHF (cumulative hazard function)
+
+        Inputs:
+        show_plot - True/False. Default is True
+        xvals - x-values for plotting
+        xmin - minimum x-value for plotting
+        xmax - maximum x-value for plotting
+        *If xvals is specified, it will be used. If xvals is not specified but xmin and xmax are specified then an array with 1000 elements
+        will be created using these ranges. If nothing is specified then the range will be based on the distribution's parameters.
+        *plotting keywords are also accepted (eg. color, linestyle)
+
+        Outputs:
+        yvals - this is the y-values of the plot
+        The plot will be shown if show_plot is True (which it is by default).
+        '''
+
+        # obtain the X array
+        X = generate_X_array(dist=self, func='CHF', xvals=xvals, xmin=xmin, xmax=xmax)
+
+        # this determines if the user has specified for the CI bounds to be shown or hidden. Applicable kwargs are show_CI or plot_CI
+        kwargs_list = kwargs.keys()
+        if 'plot_CI' in kwargs_list:
+            plot_CI = kwargs.pop('plot_CI')
+        elif 'show_CI' in kwargs_list:
+            plot_CI = kwargs.pop('show_CI')
+        else:
+            plot_CI = True  # default
+        if plot_CI not in [True, False]:
+            print('WARNING: unexpected value in kwargs. To show/hide the CI you can specify either show_CI=True/False or plot_CI=True/False')
+            plot_CI = True
+
+        chf = ((X - self.gamma) / self.alpha) ** self.beta
+        chf = zeroise_below_gamma(X=X, Y=chf, gamma=self.gamma)
+        self._chf = chf  # required by the CI plotting part
+        self._X = X
+
+        if show_plot == False:
+            return chf
+        else:
+            limits = get_axes_limits()  # get the previous axes limits
+
+            p = plt.plot(X, chf, **kwargs)
+            plt.xlabel('x values')
+            plt.ylabel('Cumulative hazard')
+            text_title = str('Loglogistic Distribution\n' + ' Cumulative Hazard Function ' + '\n' + self.param_title)
+            plt.title(text_title)
+            plt.subplots_adjust(top=0.87)
+
+            restore_axes_limits(limits, dist=self, func='CHF', X=X, Y=chf, xvals=xvals, xmin=xmin, xmax=xmax)
+
+            # Weibull_Distribution.__weibull_CI(self, func='CHF', plot_CI=plot_CI, text_title=text_title, color=p[0].get_color())
+
+            return chf
+
+    def __weibull_CI(self, func, plot_CI, text_title, color):
+        '''
+        Generates the confidence intervals for CDF, SF, HF, CHF
+        This is a hidden function intended only for use by the Weibull CDF, SF, HF, CHF functions.
+        '''
+        if self.alpha_SE is not None and self.beta_SE is not None and self.Cov_alpha_beta is not None and self.Z is not None and plot_CI is True:
+            if self.CI_type in ['time', 't', 'T', 'TIME', 'Time']:
+                self.CI_type = 'time'
+            elif self.CI_type in ['reliability', 'r', 'R', 'RELIABILITY', 'rel', 'REL', 'Reliability']:
+                self.CI_type = 'reliability'
+            if func not in ['CDF', 'SF', 'HF', 'CHF']:
+                raise ValueError('func must be either CDF, SF, HF, or CHF')
+            CI_100 = round((1 - ss.norm.cdf(-self.Z) * 2) * 100, 4)  # Converts Z to CI and formats the confidence interval value ==> 0.95 becomes 95
+            if CI_100 % 1 == 0:
+                CI_100 = int(CI_100)  # removes decimals if the only decimal is 0
+            text_title = str(text_title + '\n' + str(CI_100) + '% confidence bounds on ' + self.CI_type)  # Adds the CI and CI_type to the title
+            plt.title(text_title)
+            plt.subplots_adjust(top=0.83)
+
+            # functions for upper and lower confidence bounds on time and reliability
+            def uR(t, alpha, beta):  # u = ln(-ln(R))
+                return beta * (anp.log(t) - anp.log(alpha))
+
+            du_da_R = jac(uR, 1)  # derivative wrt alpha (for bounds on reliability)
+            du_db_R = jac(uR, 2)  # derivative wrt beta (for bounds on reliability)
+
+            def uT(R, alpha, beta):  # u = ln(t)
+                return (1 / beta) * anp.log(-anp.log(R)) + anp.log(alpha)
+
+            du_da_T = jac(uT, 1)  # derivative wrt alpha (for bounds on time)
+            du_db_T = jac(uT, 2)  # derivative wrt beta (for bounds on time)  ----------- this causes nan for some cases. a=50,b=5,g=500,seed=5,samples=20
+
+            def var_uR(self, t):
+                return du_da_R(t, self.alpha, self.beta) ** 2 * self.alpha_SE ** 2 \
+                       + du_db_R(t, self.alpha, self.beta) ** 2 * self.beta_SE ** 2 \
+                       + 2 * du_da_R(t, self.alpha, self.beta) * du_db_R(t, self.alpha, self.beta) * self.Cov_alpha_beta
+
+            def var_uT(self, R):
+                return du_da_T(R, self.alpha, self.beta) ** 2 * self.alpha_SE ** 2 \
+                       + du_db_T(R, self.alpha, self.beta) ** 2 * self.beta_SE ** 2 \
+                       + 2 * du_da_T(R, self.alpha, self.beta) * du_db_T(R, self.alpha, self.beta) * self.Cov_alpha_beta
+
+            if self.CI_type == 'time':  # Confidence bounds on time (in terms of reliability)
+                if func == 'CHF':  # CHF and CDF probability plot
+                    chf_array = np.logspace(-8, np.log10(self._chf[-1] * 1.5), 100)
+                    R = np.exp(-chf_array)
+                elif func == 'HF':
+                    chf_array = np.logspace(-8, np.log10(self._chf[-1] * 5), 1000)  # higher detail required for numerical derivative to obtain HF
+                    R = np.exp(-chf_array)
+                else:
+                    R = transform_spaced('weibull', y_lower=1e-8, y_upper=1 - 1e-8, num=100)
+
+                u_T_lower = uT(R, self.alpha, self.beta) - self.Z * (var_uT(self, R) ** 0.5)
+                T_lower0 = np.exp(u_T_lower) + self.gamma
+                u_T_upper = uT(R, self.alpha, self.beta) + self.Z * (var_uT(self, R) ** 0.5)
+                T_upper0 = np.exp(u_T_upper) + self.gamma
+
+                min_time, max_time = 1e-12, 1e12  # these are the plotting limits for the CIs
+                T_lower = np.where(T_lower0 < min_time, min_time, T_lower0)  # this applies a limit along time (x-axis) so that fill_betweenx is not plotting to infinity
+                T_upper = np.where(T_upper0 > max_time, max_time, T_upper0)
+
+                if func == 'CDF':
+                    yy = 1 - R
+                elif func == 'SF':
+                    yy = R
+                elif func == 'HF':
+                    yy0 = -np.log(R)  # CHF
+                    yy_lower = np.diff(np.hstack([[0], yy0])) / np.diff(np.hstack([[0], T_lower]))  # this formula is equivalent to dy/dx of the CHF
+                    yy_upper = np.diff(np.hstack([[0], yy0])) / np.diff(np.hstack([[0], T_upper]))  # this formula is equivalent to dy/dx of the CHF
+                    if self.gamma > 0:
+                        idx_X = np.where(self._X >= self.gamma)[0][0]
+                        yy_lower[0:idx_X] = 0  # this correction is required for the lower bound which will be inf due to dy/dx for X<gamma
+                        yy_upper[0:idx_X] = 0
+                elif func == 'CHF':
+                    yy = -np.log(R)
+
+                if func in ['CDF', 'SF', 'CHF']:
+                    fill_no_autoscale(xlower=T_lower, xupper=T_upper, ylower=yy, yupper=yy, color=color, alpha=0.3, linewidth=0)
+                    line_no_autoscale(x=T_lower, y=yy, color=color, linewidth=0)  # these are invisible but need to be added to the plot for crosshairs() to find them
+                    line_no_autoscale(x=T_upper, y=yy, color=color, linewidth=0)  # still need to specify color otherwise the invisible CI lines will consume default colors
+                    # plt.scatter(T_lower, yy, linewidth=1, color='blue')
+                    # plt.scatter(T_upper, yy, linewidth=1, color='red')
+                else:  # HF
+                    fill_no_autoscale(xlower=T_lower, xupper=T_upper, ylower=yy_lower, yupper=yy_upper, color=color, alpha=0.3, linewidth=0)
+                    line_no_autoscale(x=T_lower, y=yy_lower, color=color, linewidth=0)  # these are invisible but need to be added to the plot for crosshairs() to find them
+                    line_no_autoscale(x=T_upper, y=yy_upper, color=color, linewidth=0)  # still need to specify color otherwise the invisible CI lines will consume default colors
+                    # plt.scatter(T_lower, yy_lower, linewidth=1, color='blue')
+                    # plt.scatter(T_upper, yy_upper, linewidth=1, color='red')
+
+            elif self.CI_type == 'reliability':  # Confidence bounds on Reliability (in terms of time)
+                if plt.gca().get_xscale() != 'linear':  # just for probability plot
+                    t_max = ss.weibull_min.ppf(0.99999, self.beta, scale=self.alpha) * 1e4
+                    t = np.geomspace(1e-5, t_max, 100)
+                else:
+                    if func in ['SF', 'CDF']:
+                        if self.beta <= 1:
+                            t_max = (self.b95 - self.gamma) * 5
+                        else:  # beta > 1
+                            t_max = (self.b95 - self.gamma) * 2
+                        t = np.linspace(1e-5, t_max, 100)
+                    elif func == 'HF':
+                        t_max = self._X[-1]
+                        if self.beta <= 1:
+                            t = np.logspace(-5, np.log10(t_max), 1000)  # higher detail required because of numerical derivative
+                        else:  # beta > 1
+                            t = np.linspace(1e-5, t_max, 1000)  # higher detail required because of numerical derivative
+                    else:  # CHF
+                        t_max = self._X[-1]
+                        t = np.linspace(1e-5, t_max, 300)  # higher resolution as much is lost due to nan and inf from -ln(SF) when SF=0
+
+                u_R_lower = uR(t, self.alpha, self.beta) + self.Z * var_uR(self, t) ** 0.5  # note that gamma is incorporated into uR but not in var_uR. This is the same as just shifting a Weibull_2P across
+                R_lower0 = np.exp(-np.exp(u_R_lower))
+                u_R_upper = uR(t, self.alpha, self.beta) - self.Z * var_uR(self, t) ** 0.5
+                R_upper0 = np.exp(-np.exp(u_R_upper))
+
+                if func in ['HF', 'CHF']:
+                    min_R, max_R = np.exp(-self._chf[-1] * 10), np.exp(-self._chf[0])
+                else:  # CDF, SF
+                    min_R, max_R = 1e-12, 1 - 1e-12
+                R_lower = np.where(R_lower0 < min_R, min_R, R_lower0)  # this applies a limit along Reliability (y-axis) so that we are not plotting to infinity for the confidence intervals
+                R_upper = np.where(R_upper0 > max_R, max_R, np.where(R_upper0 < min_R, min_R, R_upper0))
+
+                if func == 'CDF':
+                    yy_lower = 1 - R_lower
+                    yy_upper = 1 - R_upper
+                elif func == 'SF':
+                    yy_lower = R_lower
+                    yy_upper = R_upper
+                elif func == 'HF':
+                    yy_lower0 = -np.log(R_lower)
+                    yy_upper0 = -np.log(R_upper)
+                    yy_lower = np.diff(np.hstack([[0], yy_lower0])) / np.diff(np.hstack([[0], t]))  # this formula is equivalent to dy/dx of the CHF
+                    yy_upper = np.diff(np.hstack([[0], yy_upper0])) / np.diff(np.hstack([[0], t]))  # this formula is equivalent to dy/dx of the CHF
+                elif func == 'CHF':
+                    yy_lower = -np.log(R_lower)  # this can cause nans which are removed before plotting in the fill_no_autoscale function
+                    yy_upper = -np.log(R_upper)  # this can cause nans which are removed before plotting in the fill_no_autoscale function
+
+                fill_no_autoscale(xlower=t + self.gamma, xupper=t + self.gamma, ylower=yy_lower, yupper=yy_upper, color=color, alpha=0.3, linewidth=0)
+                line_no_autoscale(x=t + self.gamma, y=yy_lower, color=color, linewidth=0)  # these are invisible but need to be added to the plot for crosshairs() to find them
+                line_no_autoscale(x=t + self.gamma, y=yy_upper, color=color, linewidth=0)  # still need to specify color otherwise the invisible CI lines will consume default colors
+                # plt.scatter(t + self.gamma, yy_upper, color='red')
+                # plt.scatter(t + self.gamma, yy_lower, color='blue')
+
+    def quantile(self, q):
+        '''
+        Quantile calculator
+
+        :param q: quantile to be calculated
+        :return: the probability (area under the curve) that a random variable from the distribution is < q
+        '''
+        if type(q) == int or type(q) == float:
+            if q < 0 or q > 1:
+                raise ValueError('Quantile must be between 0 and 1')
+        elif type(q) == np.ndarray or type(q) == list:
+            if min(q) < 0 or max(q) > 1:
+                raise ValueError('Quantile must be between 0 and 1')
+        else:
+            raise ValueError('Quantile must be of type int, float, list, array')
+        return ss.fisk.ppf(q, self.beta, scale=self.alpha, loc=self.gamma)
+
+    def inverse_SF(self, q):
+        '''
+        Inverse Survival function calculator
+
+        :param q: quantile to be calculated
+        :return: the inverse of the survival function at q
+        '''
+        if type(q) == int or type(q) == float:
+            if q < 0 or q > 1:
+                raise ValueError('Quantile must be between 0 and 1')
+        elif type(q) == np.ndarray or type(q) == list:
+            if min(q) < 0 or max(q) > 1:
+                raise ValueError('Quantile must be between 0 and 1')
+        else:
+            raise ValueError('Quantile must be of type int, float, list, array')
+        return ss.fisk.isf(q, self.beta, scale=self.alpha, loc=self.gamma)
+
+    def mean_residual_life(self, t):
+        '''
+        Mean Residual Life calculator
+
+        :param t: time at which MRL is to be evaluated
+        :return: MRL
+        '''
+        R = lambda x: ss.fisk.sf(x, self.beta, scale=self.alpha, loc=self.gamma)
+        integral_R, error = integrate.quad(R, t, np.inf)
+        MRL = integral_R / R(t)
+        return MRL
+
+    def stats(self):
+        if self.gamma == 0:
+            print('Descriptive statistics for Weibull distribution with alpha =', self.alpha, 'and beta =', self.beta)
+        else:
+            print('Descriptive statistics for Weibull distribution with alpha =', self.alpha, ', beta =', self.beta, ', and gamma =', self.gamma)
+        print('Mean = ', self.mean)
+        print('Median =', self.median)
+        print('Mode =', self.mode)
+        print('5th quantile =', self.b5)
+        print('95th quantile =', self.b95)
+        print('Standard deviation =', self.standard_deviation)
+        print('Variance =', self.variance)
+        print('Skewness =', self.skewness)
+        print('Excess kurtosis =', self.excess_kurtosis)
+
+    def random_samples(self, number_of_samples, seed=None):
+        '''
+        random_samples
+        Draws random samples from the probability distribution
+
+        :param number_of_samples: the number of samples to be drawn
+        :param seed: the random seed. Default is None
+        :return: the random samples
+        '''
+        if type(number_of_samples) != int or number_of_samples < 1:
+            raise ValueError('number_of_samples must be an integer greater than 1')
+        if seed is not None:
+            np.random.seed(seed)
+        RVS = ss.fisk.rvs(self.beta, scale=self.alpha, loc=self.gamma, size=number_of_samples)
+        return RVS
+
 
 
 class Weibull_Distribution:
