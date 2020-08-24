@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.ticker import FixedLocator
-from reliability.Distributions import Weibull_Distribution, Lognormal_Distribution, Normal_Distribution, Gamma_Distribution, Beta_Distribution, Exponential_Distribution
+from reliability.Distributions import Weibull_Distribution, Lognormal_Distribution, Normal_Distribution, Gamma_Distribution, Beta_Distribution, Exponential_Distribution, Loglogistic_Distribution
 from reliability.Nonparametric import KaplanMeier, NelsonAalen
 from reliability.Utils import axes_transforms, round_to_decimals
 
@@ -1336,3 +1336,136 @@ def plot_points(failures=None, right_censored=None, func='CDF', h1=None, h2=None
         plt.scatter(x, y_adjusted, marker=marker, color=color, **kwargs)  # plot the points. Restore the previous limits
         plt.xlim(*xlims,auto=None)
         plt.ylim(*ylims,auto=None)
+
+
+def Loglogistic_probability_plot(failures=None, right_censored=None, fit_gamma=False, __fitted_dist_params=None, h1=None, h2=None, CI=0.95, CI_type='time', show_fitted_distribution=True, **kwargs):
+    '''
+    Loglogistic probability plot
+
+    Generates a probability plot on Loglogistic scaled probability paper so that the distribution appears linear.
+    Inputs:
+    failures - the array or list of failure times
+    right_censored - the array or list of right censored failure times
+    fit_gamma - True/False. Default is False. Specify this as True in order to fit the Loglogistic_3P distribution and scale the x-axis to time - gamma.
+    show_fitted_distribution - True/False. If true, the fitted distribution will be plotted on the probability plot. Defaults to True
+    h1 and h2 are the heuristic constants for plotting positions of the form (k-h1)/(n+h2). Default is h1=0.3,h2=0.4 which is the median rank method (same as in Minitab).
+        For more heuristics, see: https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot#Heuristics
+    CI - the confidence interval for the bounds. Default is 0.95 for 95% CI.
+    CI_type - time, reliability, None. Default is time' This is the type of CI bounds. i.e. bounds on time or bounds on reliability. Use None to turn off the confidence intervals.
+    kwargs are accepted for the fitted line (eg. linestyle, label, color)
+
+    Outputs:
+    The plot is the only output. Use plt.show() to show it.
+    '''
+    # ensure the input data is arrays
+
+    if len(failures) < 2 and __fitted_dist_params is None:
+        raise ValueError('Insufficient data to fit a distribution. Minimum number of points is 2')
+    if type(failures) == np.ndarray:
+        pass
+    elif type(failures) == list:
+        failures = np.array(failures)
+    else:
+        raise ValueError('failures must be a list or an array')
+    if right_censored is not None:
+        if type(right_censored) == np.ndarray:
+            pass
+        elif type(right_censored) == list:
+            right_censored = np.array(right_censored)
+        else:
+            raise ValueError('right_censored must be a list or an array')
+    # generate the figure and fit the distribution
+    if max(failures) < 1:
+        xvals = np.linspace(10 ** -10, 3, 1000)
+    else:
+        xvals = np.logspace(-25, np.ceil(np.log10(max(failures))) + 6, 1000)
+
+    if __fitted_dist_params is not None:
+        if __fitted_dist_params.gamma > 0:
+            fit_gamma = True
+
+    if fit_gamma is False:
+        if __fitted_dist_params is not None:
+            alpha = __fitted_dist_params.alpha
+            beta = __fitted_dist_params.beta
+            alpha_SE = __fitted_dist_params.alpha_SE
+            beta_SE = __fitted_dist_params.beta_SE
+            Cov_alpha_beta = __fitted_dist_params.Cov_alpha_beta
+        else:
+            from reliability.Fitters import Fit_Loglogistic_2P
+            fit = Fit_Loglogistic_2P(failures=failures, right_censored=right_censored, CI=CI, show_probability_plot=False, print_results=False)
+            alpha = fit.alpha
+            beta = fit.beta
+            alpha_SE = fit.alpha_SE
+            beta_SE = fit.beta_SE
+            Cov_alpha_beta = fit.Cov_alpha_beta
+        if 'label' in kwargs:
+            label = kwargs.pop('label')
+        else:
+            label = str('Fitted Loglogistic_2P (α=' + str(round_to_decimals(alpha, dec)) + ', β=' + str(round_to_decimals(beta, dec)) + ')')
+        if 'color' in kwargs:
+            data_color = kwargs.get('color')
+        else:
+            data_color = 'k'
+        xlabel = 'Time'
+    '''elif fit_gamma is True:
+        if __fitted_dist_params is not None:
+            alpha = __fitted_dist_params.alpha
+            beta = __fitted_dist_params.beta
+            gamma = __fitted_dist_params.gamma
+            alpha_SE = __fitted_dist_params.alpha_SE
+            beta_SE = __fitted_dist_params.beta_SE
+            Cov_alpha_beta = __fitted_dist_params.Cov_alpha_beta
+        else:
+            from reliability.Fitters import Fit_Weibull_3P
+            fit = Fit_Weibull_3P(failures=failures, right_censored=right_censored, CI=CI, show_probability_plot=False, print_results=False)
+            alpha = fit.alpha
+            beta = fit.beta
+            gamma = fit.gamma
+            alpha_SE = fit.alpha_SE
+            beta_SE = fit.beta_SE
+            Cov_alpha_beta = fit.Cov_alpha_beta
+
+        if 'label' in kwargs:
+            label = kwargs.pop('label')
+        else:
+            label = str('Fitted Weibull_3P\n(α=' + str(round_to_decimals(alpha, dec)) + ', β=' + str(round_to_decimals(beta, dec)) + ', γ=' + str(round_to_decimals(gamma, dec)) + ')')
+        if 'color' in kwargs:
+            data_color = kwargs.get('color')
+        else:
+            data_color = 'k'
+        xlabel = 'Time - gamma'
+        failures = failures - gamma
+        if right_censored is not None:
+            right_censored = right_censored - gamma'''
+    llf = Loglogistic_Distribution(alpha=alpha, beta=beta, alpha_SE=alpha_SE, beta_SE=beta_SE, Cov_alpha_beta=Cov_alpha_beta, CI=CI, CI_type=CI_type)
+
+    # plot the failure points and format the scale and axes
+    x, y = plotting_positions(failures=failures, right_censored=right_censored, h1=h1, h2=h2)
+    xrange = plt.xlim(auto=None)  # this ensures the previously plotted objects are considered when setting the range
+    xrange_min = min(min(x), xrange[0])
+    xrange_max = max(max(x), xrange[1])
+    if xrange_min <= 0:
+        xrange_min = min(x)
+    plt.scatter(x, y, marker='.', linewidth=2, c=data_color)
+    plt.gca().set_yscale('function', functions=(axes_transforms.loglogistic_forward, axes_transforms.loglogistic_inverse))
+    plt.xscale('log')
+    plt.grid(b=True, which='major', color='k', alpha=0.3, linestyle='-')
+    plt.grid(b=True, which='minor', color='k', alpha=0.08, linestyle='-')
+    plt.ylim([0.0001, 0.9999])
+    pts_min_log = 10 ** (int(np.floor(np.log10(xrange_min))))  # second smallest point is rounded down to nearest power of 10
+    pts_max_log = 10 ** (int(np.ceil(np.log10(xrange_max))))  # largest point is rounded up to nearest power of 10
+    plt.gca().yaxis.set_minor_locator(FixedLocator(np.linspace(0, 1, 51)))
+    ytickvals = [0.0001, 0.0003, 0.001, 0.002, 0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999, 0.9999]
+    plt.yticks(ytickvals)
+    plt.gca().set_yticklabels(['{:,.2%}'.format(x) for x in ytickvals])  # formats y ticks as percentage
+    plt.gcf().set_size_inches(9, 7)  # adjust the figsize. This is done post figure creation so that layering is easier
+    if show_fitted_distribution is True:
+        llf.CDF(xvals=xvals, label=label, **kwargs)
+        plt.legend(loc='upper left')
+    plt.title('Probability plot\nLoglogistic CDF')
+    plt.ylabel('Fraction failing')
+    plt.xlabel(xlabel)  # needs to be set after plotting the CDF to override the default 'xvals'
+    plt.xlim([pts_min_log, pts_max_log])
+    plt.gca().invert_yaxis()
+    return plt.gcf()

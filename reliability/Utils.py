@@ -129,6 +129,14 @@ class axes_transforms:
     '''
 
     @staticmethod
+    def loglogistic_forward(F):
+        return np.log((1-F)/F)
+
+    @staticmethod
+    def loglogistic_inverse(R):
+        return 1/(1 + np.exp(R))
+
+    @staticmethod
     def weibull_forward(F):
         return np.log(-np.log(1 - F))
 
