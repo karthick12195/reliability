@@ -195,7 +195,7 @@ class Loglogistic_Distribution:
         sf = ss.fisk.sf(X, self.beta, scale=self.alpha, loc=self.gamma)
         hf = (self.beta / self.alpha) * ((Xhf - self.gamma) / self.alpha) ** (self.beta - 1)
         hf = zeroise_below_gamma(X=X, Y=hf, gamma=self.gamma)
-        chf = ((Xhf - self.gamma) / self.alpha) ** self.beta
+        chf = np.log(1 + ((X - self.gamma) / self.alpha) ** self.beta)
         chf = zeroise_below_gamma(X=X, Y=chf, gamma=self.gamma)
 
         plt.figure(figsize=(9, 7))
@@ -440,7 +440,7 @@ class Loglogistic_Distribution:
         hf = zeroise_below_gamma(X=X, Y=hf, gamma=self.gamma)
         self._hf = hf  # required by the CI plotting part
 
-        chf = ((X - self.gamma) / self.alpha) ** self.beta
+        chf = np.log(1 + ((X - self.gamma) / self.alpha) ** self.beta)
         chf = zeroise_below_gamma(X=X, Y=chf, gamma=self.gamma)
         self._chf = chf  # required by the CI plotting part
         self._X = X
@@ -496,7 +496,7 @@ class Loglogistic_Distribution:
             print('WARNING: unexpected value in kwargs. To show/hide the CI you can specify either show_CI=True/False or plot_CI=True/False')
             plot_CI = True
 
-        chf = ((X - self.gamma) / self.alpha) ** self.beta
+        chf = np.log(1 + ((X - self.gamma) / self.alpha) ** self.beta)
         chf = zeroise_below_gamma(X=X, Y=chf, gamma=self.gamma)
         self._chf = chf  # required by the CI plotting part
         self._X = X
