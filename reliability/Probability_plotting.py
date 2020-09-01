@@ -1408,7 +1408,7 @@ def Loglogistic_probability_plot(failures=None, right_censored=None, fit_gamma=F
         else:
             data_color = 'k'
         xlabel = 'Time'
-    '''elif fit_gamma is True:
+    elif fit_gamma is True:
         if __fitted_dist_params is not None:
             alpha = __fitted_dist_params.alpha
             beta = __fitted_dist_params.beta
@@ -1417,8 +1417,8 @@ def Loglogistic_probability_plot(failures=None, right_censored=None, fit_gamma=F
             beta_SE = __fitted_dist_params.beta_SE
             Cov_alpha_beta = __fitted_dist_params.Cov_alpha_beta
         else:
-            from reliability.Fitters import Fit_Weibull_3P
-            fit = Fit_Weibull_3P(failures=failures, right_censored=right_censored, CI=CI, show_probability_plot=False, print_results=False)
+            from reliability.Fitters import Fit_Loglogistic_3P
+            fit = Fit_Loglogistic_3P(failures=failures, right_censored=right_censored, CI=CI, show_probability_plot=False, print_results=False)
             alpha = fit.alpha
             beta = fit.beta
             gamma = fit.gamma
@@ -1437,7 +1437,7 @@ def Loglogistic_probability_plot(failures=None, right_censored=None, fit_gamma=F
         xlabel = 'Time - gamma'
         failures = failures - gamma
         if right_censored is not None:
-            right_censored = right_censored - gamma'''
+            right_censored = right_censored - gamma
     llf = Loglogistic_Distribution(alpha=alpha, beta=beta, alpha_SE=alpha_SE, beta_SE=beta_SE, Cov_alpha_beta=Cov_alpha_beta, CI=CI, CI_type=CI_type)
 
     # plot the failure points and format the scale and axes
