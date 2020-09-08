@@ -1429,7 +1429,7 @@ def Loglogistic_probability_plot(failures=None, right_censored=None, fit_gamma=F
         if 'label' in kwargs:
             label = kwargs.pop('label')
         else:
-            label = str('Fitted Weibull_3P\n(α=' + str(round_to_decimals(alpha, dec)) + ', β=' + str(round_to_decimals(beta, dec)) + ', γ=' + str(round_to_decimals(gamma, dec)) + ')')
+            label = str('Fitted Loglogistic_3P\n(α=' + str(round_to_decimals(alpha, dec)) + ', β=' + str(round_to_decimals(beta, dec)) + ', γ=' + str(round_to_decimals(gamma, dec)) + ')')
         if 'color' in kwargs:
             data_color = kwargs.get('color')
         else:
@@ -1461,7 +1461,7 @@ def Loglogistic_probability_plot(failures=None, right_censored=None, fit_gamma=F
     plt.gca().set_yticklabels(['{:,.2%}'.format(x) for x in ytickvals])  # formats y ticks as percentage
     plt.gcf().set_size_inches(9, 7)  # adjust the figsize. This is done post figure creation so that layering is easier
     if show_fitted_distribution is True:
-        llf.CDF(xvals=xvals, label=label, **kwargs)
+        llf.CDF(xvals=xvals, label=label, color='red', **kwargs)
         plt.legend(loc='upper left')
     plt.title('Probability plot\nLoglogistic CDF')
     plt.ylabel('Fraction failing')

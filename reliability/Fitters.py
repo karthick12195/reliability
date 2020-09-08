@@ -167,6 +167,15 @@ class Fit_Everything:
         self.Gamma_3P_AICc = self.__Gamma_3P_params.AICc
         self._parametric_CDF_Gamma_3P = self.__Gamma_3P_params.distribution.CDF(xvals=d, show_plot=False)
 
+        self.__Loglogistic_3P_params = Fit_Loglogistic_3P(failures=failures, right_censored=right_censored,
+                                                  show_probability_plot=False, print_results=False)
+        self.Loglogistic_3P_alpha = self.__Loglogistic_3P_params.alpha
+        self.Loglogistic_3P_beta = self.__Loglogistic_3P_params.beta
+        self.Loglogistic_3P_gamma = self.__Loglogistic_3P_params.gamma
+        self.Loglogistic_3P_BIC = self.__Loglogistic_3P_params.BIC
+        self.Loglogistic_3P_AICc = self.__Loglogistic_3P_params.AICc
+        self._parametric_CDF_Loglogistic_3P = self.__Loglogistic_3P_params.distribution.CDF(xvals=d, show_plot=False)
+
         self.__Expon_2P_params = Fit_Expon_2P(failures=failures, right_censored=right_censored, show_probability_plot=False, print_results=False)
         self.Expon_2P_lambda = self.__Expon_2P_params.Lambda
         self.Expon_2P_gamma = self.__Expon_2P_params.gamma
@@ -237,15 +246,15 @@ class Fit_Everything:
             self.Beta_2P_AICc = 0
 
         # assemble the output dataframe
-        DATA = {'Distribution': ['Weibull_3P', 'Weibull_2P', 'Normal_2P', 'Exponential_1P', 'Exponential_2P', 'Lognormal_2P', 'Lognormal_3P', 'Gamma_2P', 'Gamma_3P', 'Beta_2P', 'Loglogistic_2P'],
-                'Alpha': [self.Weibull_3P_alpha, self.Weibull_2P_alpha, '', '', '', '', '', self.Gamma_2P_alpha, self.Gamma_3P_alpha, self.Beta_2P_alpha, self.Loglogistic_2P_alpha],
-                'Beta': [self.Weibull_3P_beta, self.Weibull_2P_beta, '', '', '', '', '', self.Gamma_2P_beta, self.Gamma_3P_beta, self.Beta_2P_beta, self.Loglogistic_2P_beta],
-                'Gamma': [self.Weibull_3P_gamma, '', '', '', self.Expon_2P_gamma, '', self.Lognormal_3P_gamma, '', self.Gamma_3P_gamma, '', ''],
-                'Mu': ['', '', self.Normal_2P_mu, '', '', self.Lognormal_2P_mu, self.Lognormal_3P_mu, '', '', '', ''],
-                'Sigma': ['', '', self.Normal_2P_sigma, '', '', self.Lognormal_2P_sigma, self.Lognormal_3P_sigma, '', '', '', ''],
-                'Lambda': ['', '', '', self.Expon_1P_lambda, self.Expon_2P_lambda, '', '', '', '', '', ''],
-                'AICc': [self.Weibull_3P_AICc, self.Weibull_2P_AICc, self.Normal_2P_AICc, self.Expon_1P_AICc, self.Expon_2P_AICc, self.Lognormal_2P_AICc, self.Lognormal_3P_AICc, self.Gamma_2P_AICc, self.Gamma_3P_AICc, self.Beta_2P_AICc, self.Loglogistic_2P_AICc],
-                'BIC': [self.Weibull_3P_BIC, self.Weibull_2P_BIC, self.Normal_2P_BIC, self.Expon_1P_BIC, self.Expon_2P_BIC, self.Lognormal_2P_BIC, self.Lognormal_2P_BIC, self.Gamma_2P_BIC, self.Gamma_3P_BIC, self.Beta_2P_BIC, self.Loglogistic_2P_BIC]}
+        DATA = {'Distribution': ['Weibull_3P', 'Weibull_2P', 'Normal_2P', 'Exponential_1P', 'Exponential_2P', 'Lognormal_2P', 'Lognormal_3P', 'Gamma_2P', 'Gamma_3P', 'Beta_2P', 'Loglogistic_2P', 'Loglogistic_3P'],
+                'Alpha': [self.Weibull_3P_alpha, self.Weibull_2P_alpha, '', '', '', '', '', self.Gamma_2P_alpha, self.Gamma_3P_alpha, self.Beta_2P_alpha, self.Loglogistic_2P_alpha, self.Loglogistic_3P_alpha],
+                'Beta': [self.Weibull_3P_beta, self.Weibull_2P_beta, '', '', '', '', '', self.Gamma_2P_beta, self.Gamma_3P_beta, self.Beta_2P_beta, self.Loglogistic_2P_beta, self.Loglogistic_3P_beta],
+                'Gamma': [self.Weibull_3P_gamma, '', '', '', self.Expon_2P_gamma, '', self.Lognormal_3P_gamma, '', self.Gamma_3P_gamma, '', '', self.Loglogistic_3P_gamma],
+                'Mu': ['', '', self.Normal_2P_mu, '', '', self.Lognormal_2P_mu, self.Lognormal_3P_mu, '', '', '', '', ''],
+                'Sigma': ['', '', self.Normal_2P_sigma, '', '', self.Lognormal_2P_sigma, self.Lognormal_3P_sigma, '', '', '', '', ''],
+                'Lambda': ['', '', '', self.Expon_1P_lambda, self.Expon_2P_lambda, '', '', '', '', '', '', ''],
+                'AICc': [self.Weibull_3P_AICc, self.Weibull_2P_AICc, self.Normal_2P_AICc, self.Expon_1P_AICc, self.Expon_2P_AICc, self.Lognormal_2P_AICc, self.Lognormal_3P_AICc, self.Gamma_2P_AICc, self.Gamma_3P_AICc, self.Beta_2P_AICc, self.Loglogistic_2P_AICc, self.Loglogistic_3P_AICc],
+                'BIC': [self.Weibull_3P_BIC, self.Weibull_2P_BIC, self.Normal_2P_BIC, self.Expon_1P_BIC, self.Expon_2P_BIC, self.Lognormal_2P_BIC, self.Lognormal_2P_BIC, self.Gamma_2P_BIC, self.Gamma_3P_BIC, self.Beta_2P_BIC, self.Loglogistic_2P_BIC, self.Loglogistic_3P_BIC]}
 
         df = pd.DataFrame(DATA, columns=['Distribution', 'Alpha', 'Beta', 'Gamma', 'Mu', 'Sigma', 'Lambda', 'AICc', 'BIC'])
         # sort the dataframe by BIC or AICc and replace na and 0 values with spaces. Smallest AICc or BIC is better fit
@@ -285,6 +294,8 @@ class Fit_Everything:
             self.best_distribution = Beta_Distribution(alpha=self.Beta_2P_alpha, beta=self.Beta_2P_beta)
         elif best_dist == 'Loglogistic_2P':
             self.best_distribution = Loglogistic_Distribution(alpha=self.Loglogistic_2P_alpha, beta=self.Loglogistic_2P_beta)
+        elif best_dist == 'Loglogistic_3P':
+            self.best_distribution = Loglogistic_Distribution(alpha=self.Loglogistic_3P_alpha, beta=self.Loglogistic_3P_beta, gamma=self.Loglogistic_3P_gamma)
 
 
         # print the results
@@ -337,6 +348,7 @@ class Fit_Everything:
         Lognormal_Distribution(mu=self.Lognormal_3P_mu, sigma=self.Lognormal_3P_sigma, gamma=self.Lognormal_3P_gamma).PDF(xvals=xvals, label=r'Lognormal ($\mu , \sigma , \gamma$)')
         Normal_Distribution(mu=self.Normal_2P_mu, sigma=self.Normal_2P_sigma).PDF(xvals=xvals, label=r'Normal ($\mu , \sigma$)')
         Loglogistic_Distribution(alpha=self.Loglogistic_2P_alpha, beta=self.Loglogistic_2P_beta).PDF(xvals=xvals, label=r'Loglogistic ($\alpha , \beta$)')
+        Loglogistic_Distribution(alpha=self.Loglogistic_3P_alpha, beta=self.Loglogistic_3P_beta, gamma=self.Loglogistic_3P_gamma).PDF(xvals=xvals, label=r'Loglogistic ($\alpha , \beta$)')
         if max(X) <= 1:  # condition for Beta Dist to be fitted
             Beta_Distribution(alpha=self.Beta_2P_alpha, beta=self.Beta_2P_beta).PDF(xvals=xvals, label=r'Beta ($\alpha , \beta$)')
         plt.legend()
@@ -359,6 +371,7 @@ class Fit_Everything:
         Lognormal_Distribution(mu=self.Lognormal_3P_mu, sigma=self.Lognormal_3P_sigma, gamma=self.Lognormal_3P_gamma).CDF(xvals=xvals, label=r'Lognormal ($\mu , \sigma , \gamma$)')
         Normal_Distribution(mu=self.Normal_2P_mu, sigma=self.Normal_2P_sigma).CDF(xvals=xvals, label=r'Normal ($\mu , \sigma$)')
         Loglogistic_Distribution(alpha=self.Loglogistic_2P_alpha, beta=self.Loglogistic_2P_beta).CDF(xvals=xvals, label=r'Loglogistic ($\alpha , \beta$)')
+        Loglogistic_Distribution(alpha=self.Loglogistic_3P_alpha, beta=self.Loglogistic_3P_beta, gamma=self.Loglogistic_3P_gamma).CDF(xvals=xvals, label=r'Loglogistic ($\alpha , \beta$)')
         if max(X) <= 1:  # condition for Beta Dist to be fitted
             Beta_Distribution(alpha=self.Beta_2P_alpha, beta=self.Beta_2P_beta).CDF(xvals=xvals, label=r'Beta ($\alpha , \beta$)')
         plt.legend()
@@ -439,12 +452,12 @@ class Fit_Everything:
         plt.xticks([])
 
         plt.subplot(rows, cols, 8)
-        # xlim = max(np.hstack([self._nonparametric_CDF, self._parametric_CDF_Loglogistic_3P]))
-        # plt.scatter(self._nonparametric_CDF, self._parametric_CDF_Loglogistic_3P, marker='.', color='k')
-        # plt.plot([0, xlim], [0, xlim], 'r', alpha=0.7)
+        xlim = max(np.hstack([self._nonparametric_CDF, self._parametric_CDF_Loglogistic_3P]))
+        plt.scatter(self._nonparametric_CDF, self._parametric_CDF_Loglogistic_3P, marker='.', color='k')
+        plt.plot([0, xlim], [0, xlim], 'r', alpha=0.7)
         plt.axis('square')
         plt.title('Loglogistic_3P')
-        plt.text(x=0, y=0.5, s='PLACEHOLDER')
+        # plt.text(x=0, y=0.5, s='PLACEHOLDER')
         plt.yticks([])
         plt.xticks([])
 
@@ -487,7 +500,7 @@ class Fit_Everything:
         plt.subplots_adjust(left=0.04, bottom=0.07, right=0.96, top=0.87)
 
     def probability_plot(self):
-        from reliability.Probability_plotting import Weibull_probability_plot, Normal_probability_plot, Gamma_probability_plot, Exponential_probability_plot, Beta_probability_plot, Lognormal_probability_plot, Exponential_probability_plot_Weibull_Scale  # , Loglogistic_probability_plot
+        from reliability.Probability_plotting import Weibull_probability_plot, Normal_probability_plot, Gamma_probability_plot, Exponential_probability_plot, Beta_probability_plot, Lognormal_probability_plot, Exponential_probability_plot_Weibull_Scale, Loglogistic_probability_plot
         rows = 3
         cols = 4
 
@@ -565,8 +578,8 @@ class Fit_Everything:
         plt.title('Weibull_3P')
 
         plt.subplot(rows, cols, 7)
-        plt.text(x=0.4, y=0.5, s='PLACEHOLDER')
-        # Loglogistic_probability_plot(failures=self.failures, right_censored=self.right_censored, __fitted_dist_params=self.__Loglogistic_2P_params)
+        # plt.text(x=0.4, y=0.5, s='PLACEHOLDER')
+        Loglogistic_probability_plot(failures=self.failures, right_censored=self.right_censored, __fitted_dist_params=self.__Loglogistic_2P_params)
         ax = plt.gca()
         ax.set_yticklabels([], minor=False)
         ax.set_xticklabels([], minor=False)
@@ -574,12 +587,12 @@ class Fit_Everything:
         ax.set_xticklabels([], minor=True)
         ax.set_ylabel('')
         ax.set_xlabel('')
-        # ax.get_legend().remove()
+        ax.get_legend().remove()
         plt.title('Loglogistic_2P')
 
         plt.subplot(rows, cols, 8)
-        plt.text(x=0.4, y=0.5, s='PLACEHOLDER')
-        # Loglogistic_probability_plot(failures=self.failures, right_censored=self.right_censored, __fitted_dist_params=self.__Loglogistic_3P_params)
+        # plt.text(x=0.4, y=0.5, s='PLACEHOLDER')
+        Loglogistic_probability_plot(failures=self.failures, right_censored=self.right_censored, __fitted_dist_params=self.__Loglogistic_3P_params)
         ax = plt.gca()
         ax.set_yticklabels([], minor=False)
         ax.set_xticklabels([], minor=False)
@@ -587,7 +600,7 @@ class Fit_Everything:
         ax.set_xticklabels([], minor=True)
         ax.set_ylabel('')
         ax.set_xlabel('')
-        # ax.get_legend().remove()
+        ax.get_legend().remove()
         plt.title('Loglogistic_3P')
 
         plt.subplot(rows, cols, 9)
