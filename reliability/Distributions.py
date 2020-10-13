@@ -4618,8 +4618,8 @@ class Gumbel_Distribution:
         self.standard_deviation = sigma*np.pi/np.sqrt(6)
         self.variance = self.standard_deviation ** 2
         self.skewness = float(skew)
-        self.kurtosis = 2.4
-        self.excess_kurtosis = 5.4
+        self.excess_kurtosis = 2.4
+        self.kurtosis = 5.4
         self.median = mu + sigma*np.log(np.log(2))
         self.mode = mu
         self.param_title = str('μ=' + str(round_to_decimals(self.mu, dec)) + ',σ=' + str(round_to_decimals(self.sigma, dec)))
