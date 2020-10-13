@@ -186,6 +186,14 @@ class axes_transforms:
     def beta_inverse(R, alpha, beta):
         return ss.beta.cdf(R, a=alpha, b=beta)
 
+    @staticmethod
+    def gumbel_forward(F):
+        return ss.gumbel_l.ppf(F)
+
+    @staticmethod
+    def gumbel_inverse(R):
+        return ss.gumbel_l.cdf(R)
+
 
 def fill_no_autoscale(xlower, xupper, ylower, yupper, **kwargs):
     '''
@@ -532,7 +540,7 @@ def probability_plot_xylims(x, y, dist, spacing=0.1, gamma_beta=None, beta_alpha
         dx_log = max_x_log - min_x_log
         xlim_lower = 10 ** (min_x_log - dx_log * spacing)
         xlim_upper = 10 ** (max_x_log + dx_log * spacing)
-    elif dist in ['normal', 'gamma', 'exponential', 'beta']:
+    elif dist in ['normal', 'gamma', 'exponential', 'beta', 'gumbel']:
         min_x = min(x)
         max_x = max(x)
         dx = max_x - min_x
@@ -581,6 +589,12 @@ def probability_plot_xylims(x, y, dist, spacing=0.1, gamma_beta=None, beta_alpha
         dy_tfm = max_y_tfm - min_y_tfm
         ylim_lower = axes_transforms.loglogistic_inverse(min_y_tfm - dy_tfm * spacing)
         ylim_upper = axes_transforms.loglogistic_inverse(max_y_tfm + dy_tfm * spacing)
+    elif dist == 'gumbel':
+        min_y_tfm = axes_transforms.gumbel_forward(min(y))
+        max_y_tfm = axes_transforms.gumbel_forward(max(y))
+        dy_tfm = max_y_tfm - min_y_tfm
+        ylim_lower = axes_transforms.gumbel_inverse(min_y_tfm - dy_tfm * spacing)
+        ylim_upper = axes_transforms.gumbel_inverse(max_y_tfm + dy_tfm * spacing)
     plt.ylim(ylim_lower, ylim_upper)
 
 

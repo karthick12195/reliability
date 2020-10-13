@@ -25,7 +25,7 @@ plot_points - plots the failure points on a scatter plot. Useful to overlay the 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from reliability.Distributions import Weibull_Distribution, Lognormal_Distribution, Normal_Distribution, Gamma_Distribution, Beta_Distribution, Exponential_Distribution, Loglogistic_Distribution
+from reliability.Distributions import Weibull_Distribution, Lognormal_Distribution, Normal_Distribution, Gamma_Distribution, Beta_Distribution, Exponential_Distribution, Loglogistic_Distribution, Gumbel_Distribution
 from reliability.Nonparametric import KaplanMeier, NelsonAalen, RankAdjustment
 from reliability.Utils import axes_transforms, round_to_decimals, probability_plot_xylims, probability_plot_xyticks
 
@@ -1348,3 +1348,57 @@ def plot_points(failures=None, right_censored=None, func='CDF', a=None, **kwargs
         plt.scatter(x, y_adjusted, marker=marker, color=color, **kwargs)  # plot the points. Restore the previous limits
         plt.xlim(*xlims, auto=None)
         plt.ylim(*ylims, auto=None)
+
+def Gumbel_probability_plot(failures=None, right_censored=None, __fitted_dist_params=None, a=None, show_fitted_distribution=True, **kwargs):
+    '''
+    Gumbel probability plot
+
+    Generates a probability plot on Gumbel scaled probability paper so that the distribution appears linear.
+    Inputs:
+    failures - the array or list of failure times
+    right_censored - the array or list of right censored failure times
+    show_fitted_distribution - True/False. If true, the fitted distribution will be plotted on the probability plot. Defaults to True
+    a - the heuristic constant for plotting positions of the form (k-a)/(n+1-2a). Default is a=0.3 which is the median rank method (same as the default in Minitab).
+        For more heuristics, see: https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot#Heuristics
+    kwargs are accepted for the fitted line (eg. linestyle, label, color)
+
+    Outputs:
+    The plot is the only output. Use plt.show() to show it.
+    '''
+    if len(failures) < 2 and __fitted_dist_params is None:
+        raise ValueError('Insufficient data to fit a distribution. Minimum number of points is 2')
+    x, y = plotting_positions(failures=failures, right_censored=right_censored, a=a)
+    plt.gca().set_yscale('function', functions=(axes_transforms.gumbel_forward, axes_transforms.gumbel_inverse))
+    plt.grid(b=True, which='major', color='k', alpha=0.3, linestyle='-')
+    plt.grid(b=True, which='minor', color='k', alpha=0.08, linestyle='-')
+    if __fitted_dist_params is not None:
+        mu = __fitted_dist_params.mu
+        sigma = __fitted_dist_params.sigma
+    else:
+        from reliability.Fitters import Fit_Gumbel_2P
+        fit = Fit_Gumbel_2P(failures=failures, right_censored=right_censored, show_probability_plot=False, print_results=False)
+        mu = fit.mu
+        sigma = fit.sigma
+    if 'label' in kwargs:
+        label = kwargs.pop('label')
+    else:
+        label = str('Fitted Gumbel_2P (μ=' + str(round_to_decimals(mu, dec)) + ', σ=' + str(round_to_decimals(sigma, dec)) + ')')
+    if 'color' in kwargs:
+        color = kwargs.pop('color')
+        data_color = color
+    else:
+        color = 'red'
+        data_color = 'k'
+    plt.scatter(x, y, marker='.', linewidth=2, c=data_color)
+    nf = Gumbel_Distribution(mu=mu, sigma=sigma)
+    plt.gcf().set_size_inches(9, 9)  # adjust the figsize. This is done outside of figure creation so that layering of multiple plots is possible
+    if show_fitted_distribution is True:
+        nf.CDF(color=color, label=label, **kwargs)
+        plt.legend(loc='upper left')
+    plt.title('Probability plot\nGumbel CDF')
+    plt.xlabel('Time')
+    plt.ylabel('Fraction failing')
+    probability_plot_xylims(x=x, y=y, dist='gumbel', spacing=0.1)
+    probability_plot_xyticks()
+    plt.subplots_adjust(top=0.92, bottom=0.09, left=0.12, right=0.94)
+    return plt.gcf()

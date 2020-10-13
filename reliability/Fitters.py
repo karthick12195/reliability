@@ -11,6 +11,7 @@ Fit_Gamma_3P
 Fit_Lognormal_2P
 Fit_Lognormal_3P
 Fit_Normal_2P
+Fit_Gumbel_2P
 Fit_Beta_2P
 Fit_Weibull_Mixture
 Fit_Weibull_CR
@@ -29,7 +30,7 @@ import pandas as pd
 from scipy.optimize import minimize, curve_fit
 import scipy.stats as ss
 import warnings
-from reliability.Distributions import Weibull_Distribution, Gamma_Distribution, Beta_Distribution, Exponential_Distribution, Normal_Distribution, Lognormal_Distribution, Loglogistic_Distribution, Mixture_Model, Competing_Risks_Model
+from reliability.Distributions import Weibull_Distribution, Gamma_Distribution, Beta_Distribution, Exponential_Distribution, Normal_Distribution, Lognormal_Distribution, Loglogistic_Distribution, Gumbel_Distribution, Mixture_Model, Competing_Risks_Model
 from reliability.Nonparametric import KaplanMeier
 from reliability.Probability_plotting import plotting_positions
 from reliability.Utils import round_to_decimals, anderson_darling
@@ -230,6 +231,15 @@ class Fit_Everything:
         self.Loglogistic_3P_AD = self.__Loglogistic_3P_params.AD
         self._parametric_CDF_Loglogistic_3P = self.__Loglogistic_3P_params.distribution.CDF(xvals=d, show_plot=False)
 
+        self.__Gumbel_2P_params = Fit_Gumbel_2P(failures=failures, right_censored=right_censored, show_probability_plot=False, print_results=False)
+        self.Gumbel_2P_mu = self.__Gumbel_2P_params.mu
+        self.Gumbel_2P_sigma = self.__Gumbel_2P_params.sigma
+        self.Gumbel_2P_BIC = self.__Gumbel_2P_params.BIC
+        self.Gumbel_2P_AICc = self.__Gumbel_2P_params.AICc
+        self.Gumbel_2P_AD = self.__Gumbel_2P_params.AD
+        self._parametric_CDF_Gumbel_2P = self.__Gumbel_2P_params.distribution.CDF(xvals=d, show_plot=False)
+
+
         if max(failures) <= 1:
             self.__Beta_2P_params = Fit_Beta_2P(failures=failures, right_censored=right_censored, show_probability_plot=False, print_results=False)
             self.Beta_2P_alpha = self.__Beta_2P_params.alpha
@@ -246,16 +256,16 @@ class Fit_Everything:
             self.Beta_2P_AD = 0
 
         # assemble the output dataframe
-        DATA = {'Distribution': ['Weibull_3P', 'Weibull_2P', 'Normal_2P', 'Exponential_1P', 'Exponential_2P', 'Lognormal_2P', 'Lognormal_3P', 'Gamma_2P', 'Gamma_3P', 'Beta_2P', 'Loglogistic_2P', 'Loglogistic_3P'],
-                'Alpha': [self.Weibull_3P_alpha, self.Weibull_2P_alpha, '', '', '', '', '', self.Gamma_2P_alpha, self.Gamma_3P_alpha, self.Beta_2P_alpha, self.Loglogistic_2P_alpha, self.Loglogistic_3P_alpha],
-                'Beta': [self.Weibull_3P_beta, self.Weibull_2P_beta, '', '', '', '', '', self.Gamma_2P_beta, self.Gamma_3P_beta, self.Beta_2P_beta, self.Loglogistic_2P_beta, self.Loglogistic_3P_beta],
-                'Gamma': [self.Weibull_3P_gamma, '', '', '', self.Expon_2P_gamma, '', self.Lognormal_3P_gamma, '', self.Gamma_3P_gamma, '', '', self.Loglogistic_3P_gamma],
-                'Mu': ['', '', self.Normal_2P_mu, '', '', self.Lognormal_2P_mu, self.Lognormal_3P_mu, '', '', '', '', ''],
-                'Sigma': ['', '', self.Normal_2P_sigma, '', '', self.Lognormal_2P_sigma, self.Lognormal_3P_sigma, '', '', '', '', ''],
-                'Lambda': ['', '', '', self.Expon_1P_lambda, self.Expon_2P_lambda, '', '', '', '', '', '', ''],
-                'AICc': [self.Weibull_3P_AICc, self.Weibull_2P_AICc, self.Normal_2P_AICc, self.Expon_1P_AICc, self.Expon_2P_AICc, self.Lognormal_2P_AICc, self.Lognormal_3P_AICc, self.Gamma_2P_AICc, self.Gamma_3P_AICc, self.Beta_2P_AICc, self.Loglogistic_2P_AICc, self.Loglogistic_3P_AICc],
-                'BIC': [self.Weibull_3P_BIC, self.Weibull_2P_BIC, self.Normal_2P_BIC, self.Expon_1P_BIC, self.Expon_2P_BIC, self.Lognormal_2P_BIC, self.Lognormal_2P_BIC, self.Gamma_2P_BIC, self.Gamma_3P_BIC, self.Beta_2P_BIC, self.Loglogistic_2P_BIC, self.Loglogistic_3P_BIC],
-                'AD': [self.Weibull_3P_AD, self.Weibull_2P_AD, self.Normal_2P_AD, self.Expon_1P_AD, self.Expon_2P_AD, self.Lognormal_2P_AD, self.Lognormal_2P_AD, self.Gamma_2P_AD, self.Gamma_3P_AD, self.Beta_2P_AD, self.Loglogistic_2P_AD, self.Loglogistic_3P_AD]}
+        DATA = {'Distribution': ['Weibull_3P', 'Weibull_2P', 'Normal_2P', 'Exponential_1P', 'Exponential_2P', 'Lognormal_2P', 'Lognormal_3P', 'Gamma_2P', 'Gamma_3P', 'Beta_2P', 'Loglogistic_2P', 'Loglogistic_3P', 'Gumbel_2P'],
+                'Alpha': [self.Weibull_3P_alpha, self.Weibull_2P_alpha, '', '', '', '', '', self.Gamma_2P_alpha, self.Gamma_3P_alpha, self.Beta_2P_alpha, self.Loglogistic_2P_alpha, self.Loglogistic_3P_alpha, ''],
+                'Beta': [self.Weibull_3P_beta, self.Weibull_2P_beta, '', '', '', '', '', self.Gamma_2P_beta, self.Gamma_3P_beta, self.Beta_2P_beta, self.Loglogistic_2P_beta, self.Loglogistic_3P_beta, ''],
+                'Gamma': [self.Weibull_3P_gamma, '', '', '', self.Expon_2P_gamma, '', self.Lognormal_3P_gamma, '', self.Gamma_3P_gamma, '', '', self.Loglogistic_3P_gamma, ''],
+                'Mu': ['', '', self.Normal_2P_mu, '', '', self.Lognormal_2P_mu, self.Lognormal_3P_mu, '', '', '', '', '', self.Gumbel_2P_mu],
+                'Sigma': ['', '', self.Normal_2P_sigma, '', '', self.Lognormal_2P_sigma, self.Lognormal_3P_sigma, '', '', '', '', '', self.Gumbel_2P_sigma],
+                'Lambda': ['', '', '', self.Expon_1P_lambda, self.Expon_2P_lambda, '', '', '', '', '', '', '', ''],
+                'AICc': [self.Weibull_3P_AICc, self.Weibull_2P_AICc, self.Normal_2P_AICc, self.Expon_1P_AICc, self.Expon_2P_AICc, self.Lognormal_2P_AICc, self.Lognormal_3P_AICc, self.Gamma_2P_AICc, self.Gamma_3P_AICc, self.Beta_2P_AICc, self.Loglogistic_2P_AICc, self.Loglogistic_3P_AICc, self.Gumbel_2P_AICc],
+                'BIC': [self.Weibull_3P_BIC, self.Weibull_2P_BIC, self.Normal_2P_BIC, self.Expon_1P_BIC, self.Expon_2P_BIC, self.Lognormal_2P_BIC, self.Lognormal_2P_BIC, self.Gamma_2P_BIC, self.Gamma_3P_BIC, self.Beta_2P_BIC, self.Loglogistic_2P_BIC, self.Loglogistic_3P_BIC, self.Gumbel_2P_BIC],
+                'AD': [self.Weibull_3P_AD, self.Weibull_2P_AD, self.Normal_2P_AD, self.Expon_1P_AD, self.Expon_2P_AD, self.Lognormal_2P_AD, self.Lognormal_2P_AD, self.Gamma_2P_AD, self.Gamma_3P_AD, self.Beta_2P_AD, self.Loglogistic_2P_AD, self.Loglogistic_3P_AD, self.Gumbel_2P_AD]}
 
         df = pd.DataFrame(DATA, columns=['Distribution', 'Alpha', 'Beta', 'Gamma', 'Mu', 'Sigma', 'Lambda', 'AICc', 'BIC', 'AD'])
         # sort the dataframe by BIC, AICc, or AD and replace na and 0 values with spaces. Smallest AICc,BIC,AD is better fit
@@ -299,6 +309,8 @@ class Fit_Everything:
             self.best_distribution = Loglogistic_Distribution(alpha=self.Loglogistic_2P_alpha, beta=self.Loglogistic_2P_beta)
         elif best_dist == 'Loglogistic_3P':
             self.best_distribution = Loglogistic_Distribution(alpha=self.Loglogistic_3P_alpha, beta=self.Loglogistic_3P_beta, gamma=self.Loglogistic_3P_gamma)
+        elif best_dist == 'Gumbel_2P':
+            self.best_distribution = Gumbel_Distribution(mu=self.Gumbel_2P_mu, sigma=self.Gumbel_2P_sigma)
 
         # print the results
         if print_results is True:  # printing occurs by default
@@ -354,6 +366,7 @@ class Fit_Everything:
         Normal_Distribution(mu=self.Normal_2P_mu, sigma=self.Normal_2P_sigma).PDF(xvals=xvals, label=r'Normal ($\mu , \sigma$)')
         Loglogistic_Distribution(alpha=self.Loglogistic_2P_alpha, beta=self.Loglogistic_2P_beta).PDF(xvals=xvals, label=r'Loglogistic ($\alpha , \beta$)')
         Loglogistic_Distribution(alpha=self.Loglogistic_3P_alpha, beta=self.Loglogistic_3P_beta, gamma=self.Loglogistic_3P_gamma).PDF(xvals=xvals, label=r'Loglogistic ($\alpha , \beta, \gamma$)')
+        Gumbel_Distribution(mu=self.Gumbel_2P_mu, sigma=self.Gumbel_2P_sigma).PDF(xvals=xvals, label=r'Gumbel ($\mu , \sigma$)')
         if max(X) <= 1:  # condition for Beta dist to be fitted
             Beta_Distribution(alpha=self.Beta_2P_alpha, beta=self.Beta_2P_beta).PDF(xvals=xvals, label=r'Beta ($\alpha , \beta$)')
         plt.legend()
@@ -377,6 +390,7 @@ class Fit_Everything:
         Normal_Distribution(mu=self.Normal_2P_mu, sigma=self.Normal_2P_sigma).CDF(xvals=xvals, label=r'Normal ($\mu , \sigma$)')
         Loglogistic_Distribution(alpha=self.Loglogistic_2P_alpha, beta=self.Loglogistic_2P_beta).CDF(xvals=xvals, label=r'Loglogistic ($\alpha , \beta$)')
         Loglogistic_Distribution(alpha=self.Loglogistic_3P_alpha, beta=self.Loglogistic_3P_beta, gamma=self.Loglogistic_3P_gamma).CDF(xvals=xvals, label=r'Loglogistic ($\alpha , \beta, \gamma$)')
+        Gumbel_Distribution(mu=self.Gumbel_2P_mu, sigma=self.Gumbel_2P_sigma).CDF(xvals=xvals, label=r'Gumbel ($\mu , \sigma$)')
         if max(X) <= 1:  # condition for Beta Dist to be fitted
             Beta_Distribution(alpha=self.Beta_2P_alpha, beta=self.Beta_2P_beta).CDF(xvals=xvals, label=r'Beta ($\alpha , \beta$)')
         plt.legend()
@@ -493,6 +507,15 @@ class Fit_Everything:
         plt.yticks([])
         plt.xticks([])
 
+        plt.subplot(rows, cols, 12)
+        xlim = max(np.hstack([self._nonparametric_CDF, self._parametric_CDF_Gumbel_2P]))
+        plt.scatter(self._nonparametric_CDF, self._parametric_CDF_Gumbel_2P, marker='.', color='k')
+        plt.plot([0, xlim], [0, xlim], 'r', alpha=0.7)
+        plt.axis('square')
+        plt.title('Gumbel_2P')
+        plt.yticks([])
+        plt.xticks([])
+
         if max(self.failures) <= 1:
             plt.subplot(rows, cols, 12)
             xlim = max(np.hstack([self._nonparametric_CDF, self._parametric_CDF_Beta_2P]))
@@ -505,7 +528,7 @@ class Fit_Everything:
         plt.subplots_adjust(left=0.04, bottom=0.07, right=0.96, top=0.87)
 
     def probability_plot(self):
-        from reliability.Probability_plotting import Weibull_probability_plot, Normal_probability_plot, Gamma_probability_plot, Exponential_probability_plot, Beta_probability_plot, Lognormal_probability_plot, Exponential_probability_plot_Weibull_Scale, Loglogistic_probability_plot
+        from reliability.Probability_plotting import Weibull_probability_plot, Normal_probability_plot, Gamma_probability_plot, Exponential_probability_plot, Beta_probability_plot, Lognormal_probability_plot, Exponential_probability_plot_Weibull_Scale, Loglogistic_probability_plot, Gumbel_probability_plot
         rows = 3
         cols = 4
 
@@ -641,6 +664,19 @@ class Fit_Everything:
         ax.set_xlabel('')
         ax.get_legend().remove()
         plt.title('Normal_2P')
+
+        plt.subplot(rows, cols, 12)
+        Gumbel_probability_plot(failures=self.failures, right_censored=self.right_censored,
+                                __fitted_dist_params=self.__Gumbel_2P_params)
+        ax = plt.gca()
+        ax.set_yticklabels([], minor=False)
+        ax.set_xticklabels([], minor=False)
+        ax.set_yticklabels([], minor=True)
+        ax.set_xticklabels([], minor=True)
+        ax.set_ylabel('')
+        ax.set_xlabel('')
+        ax.get_legend().remove()
+        plt.title('Gumbel_2P')
 
         if max(self.failures) <= 1:
             plt.subplot(rows, cols, 12)
@@ -3869,4 +3905,179 @@ class Fit_Loglogistic_3P:
         LL_rc = 0
         LL_f += Fit_Loglogistic_3P.logf(T_f, params[0], params[1], params[2]).sum()  # failure times
         LL_rc += Fit_Loglogistic_3P.logR(T_rc, params[0], params[1], params[2]).sum()  # right censored times
+        return -(LL_f + LL_rc)
+
+class Fit_Gumbel_2P:
+    '''
+    Fit_Gumbel_2P
+    Fits a 2-parameter Gumbel distribution (mu,sigma) to the data provided.
+    Note that it will return a fit that may be partially in the negative domain (x<0).
+
+    Inputs:
+    failures - an array or list of failure data
+    right_censored - an array or list of right censored data
+    show_probability_plot - True/False. Defaults to True.
+    print_results - True/False. Defaults to True. Prints a dataframe of the point estimate, standard error, Lower CI and Upper CI for each parameter.
+    CI - confidence interval for estimating confidence limits on parameters. Must be between 0 and 1. Default is 0.95 for 95% CI.
+    force_sigma - Use this to specify the sigma value if you need to force sigma to be a certain value. Used in ALT probability plotting. Optional input.
+    kwargs are accepted for the probability plot (eg. linestyle, label, color)
+
+    Outputs:
+    success - Whether the solution was found by autograd (True/False)
+        if success is False a warning will be printed indicating that scipy's fit was used as autograd failed. This fit will not be accurate if
+        there is censored data as scipy does not have the ability to fit censored data. Failure of autograd to find the solution should be rare and
+        if it occurs, it is likely that the distribution is an extremely bad fit for the data. Try scaling your data, removing extreme values, or using
+        another distribution.
+    mu - the fitted Gumbel_2P mu parameter
+    sigma - the fitted Gumbel_2P sigma parameter
+    loglik - Log Likelihood (as used in Minitab and Reliasoft)
+    loglik2 - LogLikelihood*-2 (as used in JMP Pro)
+    AICc - Akaike Information Criterion
+    BIC - Bayesian Information Criterion
+    distribution - a Gumbel_Distribution object with the parameters of the fitted distribution
+    mu_SE - the standard error (sqrt(variance)) of the parameter
+    sigma_SE - the standard error (sqrt(variance)) of the parameter
+    Cov_mu_sigma - the covariance between the parameters
+    mu_upper - the upper CI estimate of the parameter
+    mu_lower - the lower CI estimate of the parameter
+    sigma_upper - the upper CI estimate of the parameter
+    sigma_lower - the lower CI estimate of the parameter
+    results - a dataframe of the results (point estimate, standard error, Lower CI and Upper CI for each parameter)
+    '''
+
+    def __init__(self, failures=None, right_censored=None, show_probability_plot=True, print_results=True, CI=0.95, force_sigma=None, **kwargs):
+        if force_sigma is not None and (failures is None or len(failures) < 1):
+            raise ValueError('Maximum likelihood estimates could not be calculated for these data. There must be at least 1 failures to calculate Gumbel parameters when force_sigma is specified.')
+        elif force_sigma is None and (failures is None or len(failures) < 2):
+            raise ValueError('Maximum likelihood estimates could not be calculated for these data. There must be at least two failures to calculate Gumbel parameters.')
+        if CI <= 0 or CI >= 1:
+            raise ValueError('CI must be between 0 and 1. Default is 0.95 for 95% Confidence interval.')
+        # fill with empty lists if not specified
+        if right_censored is None:
+            right_censored = []
+
+        # adjust inputs to be arrays
+        if type(failures) == list:
+            failures = np.array(failures)
+        if type(failures) != np.ndarray:
+            raise TypeError('failures must be a list or array of failure data')
+        if type(right_censored) == list:
+            right_censored = np.array(right_censored)
+        if type(right_censored) != np.ndarray:
+            raise TypeError('right_censored must be a list or array of right censored failure data')
+
+        all_data = np.hstack([failures, right_censored])
+        x, y = plotting_positions(failures=failures, right_censored=right_censored)
+        # solve it
+        sp = ss.gumbel_l.fit(all_data, optimizer='powell')  # scipy's answer is used as an initial guess. Scipy is only correct when there is no censored data
+        warnings.filterwarnings('ignore')  # necessary to supress the warning about the jacobian when using the nelder-mead optimizer
+        if force_sigma is None:
+            guess = [sp[0], sp[1]]
+            k = len(guess)
+            result = minimize(value_and_grad(Fit_Gumbel_2P.LL), guess, args=(failures, right_censored), jac=True, method='nelder-mead', tol=1e-6)
+        else:
+            guess = [sp[0]]
+            k = len(guess)
+            result = minimize(value_and_grad(Fit_Gumbel_2P.LL_fs), guess, args=(failures, right_censored, force_sigma), jac=True, method='nelder-mead', tol=1e-6)
+
+        if result.success is True:
+            params = result.x
+            self.success = True
+            if force_sigma is None:
+                self.mu = params[0]
+                self.sigma = params[1]
+            else:
+                self.mu = params * 1  # the *-1 converts ndarray to float64
+                self.sigma = force_sigma
+        else:
+            self.success = False
+            print('WARNING: Fitting using Autograd FAILED for Gumbel_2P. The fit from Scipy was used instead so results may not be accurate.')
+            self.mu = sp[0]
+            self.sigma = sp[1]
+
+        params = [self.mu, self.sigma]
+        n = len(all_data)
+        LL2 = 2 * Fit_Gumbel_2P.LL(params, failures, right_censored)
+        self.loglik2 = LL2
+        self.loglik = LL2 * -0.5
+        if n - k - 1 > 0:
+            self.AICc = 2 * k + LL2 + (2 * k ** 2 + 2 * k) / (n - k - 1)
+        else:
+            self.AICc = 'Insufficient data'
+        self.BIC = np.log(n) * k + LL2
+
+        # confidence interval estimates of parameters
+        Z = -ss.norm.ppf((1 - CI) / 2)
+        if force_sigma is None:
+            hessian_matrix = hessian(Fit_Gumbel_2P.LL)(np.array(tuple(params)), np.array(tuple(failures)), np.array(tuple(right_censored)))
+            covariance_matrix = np.linalg.inv(hessian_matrix)
+            self.mu_SE = abs(covariance_matrix[0][0]) ** 0.5
+            self.sigma_SE = abs(covariance_matrix[1][1]) ** 0.5
+            self.Cov_mu_sigma = abs(covariance_matrix[0][1])
+            self.mu_upper = self.mu + (Z * self.mu_SE)  # these are unique to normal and lognormal mu params
+            self.mu_lower = self.mu + (-Z * self.mu_SE)
+            self.sigma_upper = self.sigma * (np.exp(Z * (self.sigma_SE / self.sigma)))
+            self.sigma_lower = self.sigma * (np.exp(-Z * (self.sigma_SE / self.sigma)))
+        else:
+            hessian_matrix = hessian(Fit_Gumbel_2P.LL_fs)(np.array(tuple([self.mu])), np.array(tuple(failures)), np.array(tuple(right_censored)), np.array(tuple([force_sigma])))
+            covariance_matrix = np.linalg.inv(hessian_matrix)
+            self.mu_SE = abs(covariance_matrix[0][0]) ** 0.5
+            self.sigma_SE = ''
+            self.Cov_mu_sigma = ''
+            self.mu_upper = self.mu + (Z * self.mu_SE)  # these are unique to normal and lognormal mu params
+            self.mu_lower = self.mu + (-Z * self.mu_SE)
+            self.sigma_upper = ''
+            self.sigma_lower = ''
+
+        Data = {'Parameter': ['Mu', 'Sigma'],
+                'Point Estimate': [self.mu, self.sigma],
+                'Standard Error': [self.mu_SE, self.sigma_SE],
+                'Lower CI': [self.mu_lower, self.sigma_lower],
+                'Upper CI': [self.mu_upper, self.sigma_upper]}
+        df = pd.DataFrame(Data, columns=['Parameter', 'Point Estimate', 'Standard Error', 'Lower CI', 'Upper CI'])
+        self.results = df.set_index('Parameter')
+        self.distribution = Gumbel_Distribution(mu=self.mu, sigma=self.sigma)
+        self.AD = anderson_darling(fitted_cdf=self.distribution.CDF(xvals=failures, show_plot=False), empirical_cdf=y)
+
+        if print_results is True:
+            pd.set_option('display.width', 200)  # prevents wrapping after default 80 characters
+            pd.set_option('display.max_columns', 9)  # shows the dataframe without ... truncation
+            if CI * 100 % 1 == 0:
+                CI_rounded = int(CI * 100)
+            else:
+                CI_rounded = CI * 100
+            print(str('Results from Fit_Gumbel_2P (' + str(CI_rounded) + '% CI):'))
+            print(self.results)
+            print('Log-Likelihood:', self.loglik, '\n')
+
+        if show_probability_plot is True:
+            from reliability.Probability_plotting import Gumbel_probability_plot
+            if len(right_censored) == 0:
+                rc = None
+            else:
+                rc = right_censored
+            Gumbel_probability_plot(failures=failures, right_censored=rc, __fitted_dist_params=self, **kwargs)
+
+    @staticmethod
+    def logf(t, mu, sigma):  # Log PDF (Gumbel)
+        return - anp.log(sigma) + (t-mu)/sigma - anp.exp((t-mu)/sigma)
+
+    @staticmethod
+    def logR(t, mu, sigma):  # Log SF (Gumbel)
+        return -anp.exp((t-mu)/sigma)
+
+    @staticmethod
+    def LL(params, T_f, T_rc):  # log likelihood function (2 parameter Gumbel)
+        LL_f = 0
+        LL_rc = 0
+        LL_f += Fit_Gumbel_2P.logf(T_f, params[0], params[1]).sum()  # failure times
+        LL_rc += Fit_Gumbel_2P.logR(T_rc, params[0], params[1]).sum()  # right censored times
+        return -(LL_f + LL_rc)
+
+    @staticmethod
+    def LL_fs(params, T_f, T_rc, force_sigma):  # log likelihood function (2 parameter Gumbel) FORCED SIGMA
+        LL_f = 0
+        LL_rc = 0
+        LL_f += Fit_Gumbel_2P.logf(T_f, params[0], force_sigma).sum()  # failure times
+        LL_rc += Fit_Gumbel_2P.logR(T_rc, params[0], force_sigma).sum()  # right censored times
         return -(LL_f + LL_rc)
